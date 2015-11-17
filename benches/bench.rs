@@ -11,9 +11,9 @@ use csv::Csv;
 static CSV_DATA: &'static str = "./examples/data/bench.csv";
 
 #[bench]
-fn raw_records(b: &mut Bencher) {
+fn str_records(b: &mut Bencher) {
     b.iter(|| {
-        let dec = Csv::from_file(CSV_DATA, ',').unwrap();
+        let dec = Csv::from_file(CSV_DATA).unwrap();
         for row in dec.into_iter() {
             for c in row.columns() {
                 let _ = c;    
@@ -63,7 +63,7 @@ struct Play {
 #[bench]
 fn decoded_records(b: &mut Bencher) {
     b.iter(|| {
-        let dec = Csv::from_file(CSV_DATA, ',').unwrap();
+        let dec = Csv::from_file(CSV_DATA).unwrap();
         for row in dec.into_iter() {
             if let Ok(p) = row.into() {
                 let _: Play = p;
