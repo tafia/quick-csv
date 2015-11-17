@@ -59,6 +59,11 @@ impl<B: BufRead> Csv<B> {
         self
     }
 
+    /// gets first row as Vec<String>
+    pub fn header(&mut self) -> Vec<String> {
+        self.next().map(|r| r.columns().map(|c| c.to_owned()).collect())
+            .unwrap_or_else(|| Vec::new())
+    }
 }
 
 impl Csv<BufReader<File>> {
