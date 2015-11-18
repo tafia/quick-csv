@@ -8,6 +8,8 @@ use std::io::{BufRead, BufReader, Lines};
 use std::fs::File;
 use std::path::Path;
 
+use rustc_serialize::Decodable;
+
 /// Csv reader
 /// 
 /// Iterates over the rows of the csv
@@ -26,8 +28,7 @@ use std::path::Path;
 ///
 ///     {
 ///         // or decode it directly into something simpler
-///         if let Ok(dec) = row.into() {
-///             let (col1, col2): (String, u64) = dec;
+///         if let Ok((col1, col2)) = row.decode::<(String, u64)>() {
 ///             println!("Column 1: '{:?}', Column 2: '{:?}'", &col1, &col2);
 ///         }
 ///     }
@@ -103,11 +104,10 @@ impl Row {
         Columns::new(&self.line, &self.delimiter)
     }
 
-}
-
-impl<T: rustc_serialize::Decodable> Into<error::Result<T>> for Row {
-    fn into(self) -> error::Result<T> {
+    /// Decode row into custom decodable type
+    pub fn decode<T: Decodable>(&self) -> error::Result<T> {
         let mut columns = self.columns();
-        rustc_serialize::Decodable::decode(&mut columns)
+        Decodable::decode(&mut columns)
     }
+
 }

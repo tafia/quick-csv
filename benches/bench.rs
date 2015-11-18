@@ -5,7 +5,6 @@ extern crate rustc_serialize;
 extern crate test;
 
 use test::Bencher;
-
 use csv::Csv;
 
 static CSV_DATA: &'static str = "./examples/data/bench.csv";
@@ -65,8 +64,8 @@ fn decoded_records(b: &mut Bencher) {
     b.iter(|| {
         let dec = Csv::from_file(CSV_DATA).unwrap();
         for row in dec.into_iter() {
-            if let Ok(p) = row.into() {
-                let _: Play = p;
+            if let Ok(p) = row.decode::<Play>() {
+                let _ = p;
             }
         }
     })
