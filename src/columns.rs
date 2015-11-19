@@ -1,33 +1,47 @@
 use std::default::Default;
 use std::str::FromStr;
-use std::str::Split;
 
 use rustc_serialize as serialize;
 
 use error::{Result, Error};
+use std::slice::Iter;
 
 pub struct Columns<'a> {
-    iter: Split<'a, char>,
+    pos: usize,
+    line: &'a str,
+    iter: Iter<'a, usize>,
 }
 
 impl<'a> Iterator for Columns<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<&'a str> {
-        self.iter.next()
+        self.iter.next().map(|p| {
+            let s = &self.line[self.pos..*p];
+            self.pos = *p + 1;
+            s
+        })
     }
 }
 
 impl<'a> Columns<'a> {
 
-    pub fn new(s: &'a str, separator: &'a char) -> Columns<'a> {
+    pub fn new(r: &'a super::Row) -> Columns<'a> {
         Columns {
-            iter: s.split(*separator),
+            pos: 0,
+            line: &r.line,
+            iter: r.cols.iter()
         }
     }
 
+    fn peek(&self) -> Option<&'a str> {
+        self.iter.clone().next().map(|p| {
+            &self.line[self.pos..*p]
+        })
+    }
+
     fn from_str<T: FromStr + Default>(&mut self) -> Result<T> {
-        let col = try!(self.iter.next().ok_or(Error::EOL));
+        let col = try!(self.next().ok_or(Error::EOL));
         FromStr::from_str(col).map_err(|_| Error::Decode(format!("Failed converting '{}'", col)))
     }
 
@@ -58,14 +72,14 @@ impl<'a> serialize::Decoder for Columns<'a> {
     fn read_f64(&mut self) -> Result<f64> { self.from_str() }
     fn read_f32(&mut self) -> Result<f32> { self.from_str() }
     fn read_char(&mut self) -> Result<char> {
-        let col = try!(self.iter.next().ok_or(Error::EOL));
+        let col = try!(self.next().ok_or(Error::EOL));
         if col.len() != 1 {
             return Err(Error::Decode(format!("Expected a single char, found {} chars", col.len())));
         }
         Ok(col.chars().next().unwrap())
     }
     fn read_str(&mut self) -> Result<String> {
-        match self.iter.next() {
+        match self.next() {
             Some(col) => Ok(col.to_owned()),
             None => Err(Error::EOL)
         }
@@ -124,7 +138,7 @@ impl<'a> serialize::Decoder for Columns<'a> {
     }
     fn read_option<T, F>(&mut self, mut f: F) -> Result<T>
             where F: FnMut(&mut Columns<'a>, bool) -> Result<T> {
-        let col = try!(self.iter.clone().next().ok_or(Error::EOL));
+        let col = try!(self.peek().ok_or(Error::EOL));
         if col.is_empty() {
             f(self, false)
         } else {

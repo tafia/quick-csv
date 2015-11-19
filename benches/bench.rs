@@ -14,7 +14,7 @@ fn str_records(b: &mut Bencher) {
     b.iter(|| {
         let dec = Csv::from_file(CSV_DATA).unwrap();
         for row in dec.into_iter() {
-            for c in row.columns() {
+            for c in row.unwrap().columns() {
                 let _ = c;    
             }
         }
@@ -64,7 +64,7 @@ fn decoded_records(b: &mut Bencher) {
     b.iter(|| {
         let dec = Csv::from_file(CSV_DATA).unwrap();
         for row in dec.into_iter() {
-            if let Ok(p) = row.decode::<Play>() {
+            if let Ok(p) = row.unwrap().decode::<Play>() {
                 let _ = p;
             }
         }
