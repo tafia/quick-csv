@@ -12,6 +12,10 @@ pub enum Error {
     Io(io::Error),
     /// An error originating from finding end of line instead of a column.
     EOL,
+    /// Unescaped quote
+    UnescapedQuote,
+    /// Unexpected quote in a column which is non quoted column
+    UnexpextedQuote,
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -22,7 +26,9 @@ impl fmt::Display for Error {
             Error::Decode(ref msg) => write!(f, "CSV decode error: {}", msg),
             Error::Parse(ref err) => write!(f, "{}", err),
             Error::Io(ref err) => write!(f, "{}", err),
-            Error::EOL => write!(f, "CSV expecting a column, found end of line"),
+            Error::EOL => write!(f, "Trying to access column but found End Of Line"),
+            Error::UnescapedQuote => write!(f, "A CSV column has an unescaped quote"),
+            Error::UnexpextedQuote => write!(f, "A CSV column has a quote but the entire column value is not quoted"),
         }
     }
 }
@@ -33,7 +39,9 @@ impl ::std::error::Error for Error {
             Error::Decode(..) => "CSV decoding error",
             Error::Parse(..) => "CSV parse error",
             Error::Io(..) => "CSV IO error",
-            Error::EOL => "CSV expecting a column, found end of line",
+            Error::EOL => "Trying to access column but found End Of Line",
+            Error::UnescapedQuote => "A CSV column has an unescaped quote",
+            Error::UnexpextedQuote => "A CSV column has a quote but the entire column value is not quoted",
         }
     }
 

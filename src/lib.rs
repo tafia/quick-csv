@@ -4,12 +4,15 @@ pub mod columns;
 pub mod error;
 
 use self::columns::Columns;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Write, Cursor};
 use std::fs::File;
 use std::path::Path;
+use std::iter::Iterator;
 
 use error::{Error, Result};
 use rustc_serialize::Decodable;
+
+#[cfg(test)] mod test;
 
 /// Csv reader
 /// 
@@ -41,6 +44,8 @@ pub struct Csv<B: BufRead> {
     delimiter: u8,
     /// reader
     reader: B,
+    /// header
+    has_header: bool,
 }
 
 impl<B: BufRead> Csv<B> {
@@ -52,6 +57,7 @@ impl<B: BufRead> Csv<B> {
         Csv {
             reader: reader,
             delimiter: b',',
+            has_header: false,
         }
     }
 
@@ -61,10 +67,20 @@ impl<B: BufRead> Csv<B> {
         self
     }
 
+    /// Defines whether there is a header or not
+    pub fn has_header(mut self, has_header: bool) -> Csv<B> {
+        self.has_header = has_header;
+        self
+    }
+
    /// gets first row as Vec<String>
     pub fn header(&mut self) -> Vec<String> {
-        self.next().and_then(|r| r.ok().map(|r| r.columns().map(|c| c.to_owned()).collect()))
-            .unwrap_or_else(|| Vec::new())
+        if self.has_header {
+            self.next().and_then(|r| r.ok().map(|r| r.columns().map(|c| c.to_owned()).collect()))
+                .unwrap_or_else(|| Vec::new())
+        } else {
+            Vec::new()
+        }
     }
 }
 
@@ -79,6 +95,20 @@ impl Csv<BufReader<File>> {
 
 }
 
+impl Csv<BufReader<Cursor<Vec<u8>>>> {
+    /// Creates a CSV reader for an in memory string buffer.
+    pub fn from_string<'a, S>(s: S) -> Csv<Cursor<Vec<u8>>>
+            where S: Into<String> {
+        Csv::from_bytes(s.into().into_bytes())
+    }
+
+    /// Creates a CSV reader for an in memory buffer of bytes.
+    pub fn from_bytes<'a, V>(bytes: V) -> Csv<Cursor<Vec<u8>>>
+            where V: Into<Vec<u8>> {
+        Csv::from_reader(Cursor::new(bytes.into()))
+    }
+}
+
 /// Iterator on csv returning rows
 impl<B: BufRead> Iterator for Csv<B> {
     type Item = Result<Row>;
@@ -88,13 +118,14 @@ impl<B: BufRead> Iterator for Csv<B> {
         match append_line_to_string(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
+//                 if buf.is_empty() { return self.next(); }
                 if buf.ends_with("\n") {
                     buf.pop();
                     if buf.ends_with("\r") {
                         buf.pop();
                     }
-                    cols.push(buf.len());
                 }
+                cols.push(buf.len());
                 Some(Ok(Row {
                     line: buf,
                     cols: cols,
@@ -128,10 +159,36 @@ impl Row {
 
 }
 
+/// Consumes bytes as long as they are within quotes
+/// manages "" as quote escape
+/// returns
+/// - Ok(true) if entirely consumed
+/// - Ok(false) if no issue but it reached end of buffer
+/// - Err(Error::UnescapeQuote) if a quote if found within the column
+fn consume_quote<'a>(bytes: &'a mut ::std::iter::Enumerate<::std::slice::Iter<u8>>, delimiter: u8) -> Result<bool> {
+    loop {
+        match bytes.next() {
+            Some((_, &b'\"')) => {
+                match bytes.clone().next() {
+                    Some((_, &b'\"')) => {
+                        bytes.next(); // escaping quote
+                    },
+                    None | Some((_, &b'\r')) | Some((_, &b'\n')) => return Ok(true),
+                    Some((_, d)) if *d == delimiter => return Ok(true),
+                    Some((_, _)) => return Err(Error::UnescapedQuote),
+                }
+            },
+            Some((_, _)) => (),
+            None => return Ok(false),
+        }
+    }
+}
+
 fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
     delimiter: u8, cols: &mut Vec<usize>) -> Result<usize>
 {
     let mut read = 0;
+    let mut in_quote = false;
     loop {
         let (done, used) = {
             let available = match r.fill_buf() {
@@ -144,15 +201,22 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
             
             let mut bytes = available.iter().enumerate();
             let (mut done, mut used) = (false, available.len());
+
+            // previous buffer was exhausted without exiting from quotes
+            if in_quote && try!(consume_quote(&mut bytes, delimiter)) {
+                in_quote = false;
+            }
+
             // use a simple loop instead of for loop to allow nested loop
             loop {
                 match bytes.next() {
-                    Some((_, &b'\"')) => {
-                        loop {
-                            match bytes.next() {
-                                Some((_, &b'\"')) | None => break,
-                                _ => (),
+                    Some((i, &b'\"')) => {
+                        if i == 0 || available[i - 1] == delimiter {
+                            if !try!(consume_quote(&mut bytes, delimiter)) {
+                                in_quote = true;
                             }
+                        } else {
+                            return Err(Error::UnexpextedQuote);
                         }
                     },
                     Some((i, &b'\n')) => {
