@@ -3,6 +3,47 @@ use rustc_serialize as serialize;
 use error::{Result, Error};
 use std::slice::Iter;
 
+pub struct BytesColumns<'a> {
+    pos: usize,
+    line: &'a [u8],
+    iter: Iter<'a, usize>,
+}
+
+impl<'a> Iterator for BytesColumns<'a> {
+    type Item = &'a [u8];
+
+    fn next(&mut self) -> Option<&'a [u8]> {
+        self.iter.next().map(|p| {
+            let s = &self.line[self.pos..*p];
+            self.pos = *p + 1;
+            if !s.is_empty() && s[0] == b'\"' { &s[1..s.len() - 1] } else { s }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+}
+
+impl<'a> ExactSizeIterator for BytesColumns<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a> BytesColumns<'a> {
+
+    pub fn new(line: &'a [u8], cols: &'a [usize]) -> BytesColumns<'a> {
+        BytesColumns {
+            pos: 0,
+            line: line,
+            iter: cols.iter(),
+        }
+    }
+
+}
+
 pub struct Columns<'a> {
     pos: usize,
     line: &'a str,
@@ -34,11 +75,11 @@ impl<'a> ExactSizeIterator for Columns<'a> {
 
 impl<'a> Columns<'a> {
 
-    pub fn new(r: &'a super::Row) -> Columns<'a> {
+    pub fn new(line: &'a str, cols: &'a [usize]) -> Columns<'a> {
         Columns {
             pos: 0,
-            line: &r.line,
-            iter: r.cols.iter(),
+            line: &line,
+            iter: cols.iter(),
         }
     }
 

@@ -33,8 +33,7 @@ macro_rules! parses_to {
         fn $name() {
             let mut rdr = Csv::from_string($csv);
             rdr = $config(rdr);
-            let rows = rdr.map(|r| r.unwrap().columns()
-                                     .map(|c| c.to_owned()).collect())
+            let rows = rdr.map(|r| r.and_then(|r| r.decode()).unwrap())
                           .collect::<Vec<Vec<String>>>();
             assert_svec_eq::<String, &str>(rows, $vec);
         }
@@ -51,8 +50,7 @@ macro_rules! fail_parses_to {
         fn $name() {
             let mut rdr = Csv::from_string($csv);
             rdr = $config(rdr);
-            let rows = rdr.map(|r| r.unwrap().columns()
-                                     .map(|c| c.to_owned()).collect())
+            let rows = rdr.map(|r| r.and_then(|r| r.decode()).unwrap())
                           .collect::<Vec<Vec<String>>>();
             assert_svec_eq::<String, &str>(rows, $vec);
         }

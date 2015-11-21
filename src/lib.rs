@@ -3,7 +3,7 @@ extern crate rustc_serialize;
 pub mod columns;
 pub mod error;
 
-use self::columns::Columns;
+use self::columns::{Columns, BytesColumns};
 use std::io::{BufRead, BufReader, Write, Cursor};
 use std::fs::File;
 use std::path::Path;
@@ -26,8 +26,9 @@ use rustc_serialize::Decodable;
 ///     let row = row.unwrap(); // unwrap result, panic if not utf8 
 ///     {
 ///         // either use columns iterator directly (Item = &str)
-///         let mut columns = row.columns();
-///         println!("Column 1: '{:?}', Column 2: '{:?}'", columns.next(), columns.next());
+///         if let Ok(mut columns) = row.columns() {
+///             println!("Column 1: '{:?}', Column 2: '{:?}'", columns.next(), columns.next());
+///         }
 ///     }
 ///
 ///     {
@@ -74,13 +75,14 @@ impl<B: BufRead> Csv<B> {
     }
 
    /// gets first row as Vec<String>
-    pub fn header(&mut self) -> Vec<String> {
-        if self.has_header {
-            self.next().and_then(|r| r.ok().map(|r| r.columns().map(|c| c.to_owned()).collect()))
-                .unwrap_or_else(|| Vec::new())
-        } else {
-            Vec::new()
+    pub fn header(&mut self) -> Result<Vec<String>> {
+        if self.has_header {            
+            if let Some(r) = self.next() {
+                let r = try!(r);
+                return r.decode();
+            }
         }
+        Ok(Vec::new())
     }
 }
 
@@ -113,15 +115,14 @@ impl Csv<BufReader<Cursor<Vec<u8>>>> {
 impl<B: BufRead> Iterator for Csv<B> {
     type Item = Result<Row>;
     fn next(&mut self) -> Option<Result<Row>> {
-        let mut buf = String::new();
+        let mut buf = Vec::new();
         let mut cols = Vec::new();
-        match append_line_to_string(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
+        match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
-//                 if buf.is_empty() { return self.next(); }
-                if buf.ends_with("\n") {
+                if !buf.is_empty() && buf[buf.len() - 1] == b'\n' {
                     buf.pop();
-                    if buf.ends_with("\r") {
+                    if !buf.is_empty() && buf[buf.len() - 1] == b'\r' {
                         buf.pop();
                     }
                 }
@@ -140,20 +141,28 @@ impl<B: BufRead> Iterator for Csv<B> {
 ///
 /// Row can be decoded into a Result<T: Decodable>
 pub struct Row {
-    line: String,
+    line: Vec<u8>,
     cols: Vec<usize>,
 }
 
 impl Row {
 
     /// Gets an iterator over columns
-    pub fn columns<'a>(&'a self) -> Columns<'a> {
-        Columns::new(&self)
+    pub fn columns<'a>(&'a self) -> Result<Columns<'a>> {
+        match ::std::str::from_utf8(&self.line) {
+            Err(_) => Err(Error::from(::std::io::Error::new(::std::io::ErrorKind::InvalidData,
+                                            "stream did not contain valid UTF-8"))),
+            Ok(s) => Ok(Columns::new(s, &self.cols)),
+        }
+    }
+
+    pub fn bytes_columns<'a>(&'a self) -> BytesColumns<'a> {
+        BytesColumns::new(&self.line, &self.cols)
     }
 
     /// Decode row into custom decodable type
     pub fn decode<T: Decodable>(&self) -> Result<T> {
-        let mut columns = self.columns();
+        let mut columns = try!(self.columns());
         Decodable::decode(&mut columns)
     }
 
@@ -240,33 +249,6 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
         read += used;
         if done {
             return Ok(read);
-        }
-    }
-}
-
-/// Fn inspired by [std::io::BufRead](https://doc.rust-lang.org/src/std/io/mod.rs.html#297)
-/// implementation
-fn append_line_to_string<R: BufRead>(r: &mut R, buf: &mut String, 
-    delimiter: u8, cols: &mut Vec<usize>) -> Result<usize>
-{
-    struct Guard<'a> { s: &'a mut Vec<u8>, len: usize }
-        impl<'a> Drop for Guard<'a> {
-        fn drop(&mut self) {
-            unsafe { self.s.set_len(self.len); }
-        }
-    }
-
-    unsafe {
-        let mut g = Guard { len: buf.len(), s: buf.as_mut_vec() };
-        let ret = read_line(r, g.s, delimiter, cols);
-        if ::std::str::from_utf8(&g.s[g.len..]).is_err() {
-            ret.and_then(|_| {
-                Err(Error::from(::std::io::Error::new(::std::io::ErrorKind::InvalidData,
-                               "stream did not contain valid UTF-8")))
-            })
-        } else {
-            g.len = g.s.len();
-            ret
         }
     }
 }

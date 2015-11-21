@@ -36,6 +36,20 @@ fn str_records(b: &mut Bencher) {
         }
     })
 }
+
+#[bench]
+fn bytes_records(b: &mut Bencher) {
+    let data = file_to_mem(CSV_DATA);
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let dec = Csv::from_reader(&*data);
+        for row in dec.into_iter() {
+            for c in row.unwrap().bytes_columns() {
+                let _ = c;    
+            }
+        }
+    })
+}
 //
 //#[bench]
 //fn byte_records(b: &mut Bencher) {
