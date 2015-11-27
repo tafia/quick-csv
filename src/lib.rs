@@ -4,10 +4,10 @@ pub mod columns;
 pub mod error;
 
 use self::columns::{Columns, BytesColumns};
-use std::io::{BufRead, BufReader, Write, Cursor};
+use std::io::{self, BufRead, BufReader, Write, Cursor};
 use std::fs::File;
 use std::path::Path;
-use std::iter::Iterator;
+use std::iter::{Enumerate, Iterator};
 
 use error::{Error, Result};
 use rustc_serialize::Decodable;
@@ -120,9 +120,9 @@ impl<B: BufRead> Iterator for Csv<B> {
         match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
-                if !buf.is_empty() && buf[buf.len() - 1] == b'\n' {
+                if buf.end_with(&[b'\n']) {
                     buf.pop();
-                    if !buf.is_empty() && buf[buf.len() - 1] == b'\r' {
+                    if buf.end_with(&[b'\r']) {
                         buf.pop();
                     }
                 }
@@ -150,8 +150,8 @@ impl Row {
     /// Gets an iterator over columns
     pub fn columns<'a>(&'a self) -> Result<Columns<'a>> {
         match ::std::str::from_utf8(&self.line) {
-            Err(_) => Err(Error::from(::std::io::Error::new(::std::io::ErrorKind::InvalidData,
-                                            "stream did not contain valid UTF-8"))),
+            Err(_) => Err(Error::from(io::Error::new(io::ErrorKind::InvalidData,
+                                                     "stream did not contain valid UTF-8"))),
             Ok(s) => Ok(Columns::new(s, &self.cols)),
         }
     }
@@ -174,21 +174,19 @@ impl Row {
 /// - Ok(true) if entirely consumed
 /// - Ok(false) if no issue but it reached end of buffer
 /// - Err(Error::UnescapeQuote) if a quote if found within the column
-fn consume_quote<'a>(bytes: &'a mut ::std::iter::Enumerate<::std::slice::Iter<u8>>, delimiter: u8) -> Result<bool> {
+fn consume_quote<'a>(bytes: &'a mut Enumerate<::std::slice::Iter<u8>>, delimiter: u8) -> Result<bool> {
     loop {
         match bytes.next() {
             Some((_, &b'\"')) => {
                 match bytes.clone().next() {
-                    Some((_, &b'\"')) => {
-                        bytes.next(); // escaping quote
-                    },
+                    Some((_, &b'\"')) => bytes.next(), // escaping quote
                     None | Some((_, &b'\r')) | Some((_, &b'\n')) => return Ok(true),
                     Some((_, d)) if *d == delimiter => return Ok(true),
-                    Some((_, _)) => return Err(Error::UnescapedQuote),
+                    _ => return Err(Error::UnescapedQuote),
                 }
             },
-            Some((_, _)) => (),
             None => return Ok(false),
+            _ => (),
         }
     }
 }
@@ -202,7 +200,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
         let (done, used) = {
             let available = match r.fill_buf() {
                 Ok(n) => n,
-                Err(ref e) if e.kind() == ::std::io::ErrorKind::Interrupted => continue,
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(Error::from(e))
             };
             
@@ -220,18 +218,19 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
             loop {
                 match bytes.next() {
                     Some((i, &b'\"')) => {
-                        if i == 0 || available[i - 1] == delimiter {
-                            if !try!(consume_quote(&mut bytes, delimiter)) {
-                                in_quote = true;
-                            }
-                        } else {
+                        if i > 0 && available[i - 1] != delimiter {
                             return Err(Error::UnexpextedQuote);
+                        }
+                        if !try!(consume_quote(&mut bytes, delimiter)) {
+                            in_quote = true;
+                            let _ = buf.write(available);
+                            break;
                         }
                     },
                     Some((i, &b'\n')) => {
-                        let _ = buf.write(&available[..i + 1]);
-                        done = true;
                         used = i + 1;
+                        let _ = buf.write(&available[..used]);
+                        done = true;
                         break;
                     },
                     Some((i, &d)) => {
