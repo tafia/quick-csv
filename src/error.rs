@@ -16,6 +16,8 @@ pub enum Error {
     UnescapedQuote,
     /// Unexpected quote in a column which is non quoted column
     UnexpextedQuote,
+    /// Column count mismatch
+    ColumnMismatch(usize, usize),
 }
 
 /// Result type
@@ -30,6 +32,7 @@ impl fmt::Display for Error {
             Error::EOL => write!(f, "Trying to access column but found End Of Line"),
             Error::UnescapedQuote => write!(f, "A CSV column has an unescaped quote"),
             Error::UnexpextedQuote => write!(f, "A CSV column has a quote but the entire column value is not quoted"),
+            Error::ColumnMismatch(exp, cur) => write!(f, "Expectiong {} columns, found {}", exp, cur),
         }
     }
 }
@@ -43,6 +46,7 @@ impl ::std::error::Error for Error {
             Error::EOL => "Trying to access column but found End Of Line",
             Error::UnescapedQuote => "A CSV column has an unescaped quote",
             Error::UnexpextedQuote => "A CSV column has a quote but the entire column value is not quoted",
+            Error::ColumnMismatch(..) => "Current column count mismatch with previous rows",
         }
     }
 

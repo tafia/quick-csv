@@ -47,6 +47,8 @@ pub struct Csv<B: BufRead> {
     reader: B,
     /// header
     has_header: bool,
+    /// column count
+    len: Option<usize>
 }
 
 impl<B: BufRead> Csv<B> {
@@ -59,6 +61,7 @@ impl<B: BufRead> Csv<B> {
             reader: reader,
             delimiter: b',',
             has_header: false,
+	    len: None,
         }
     }
 
@@ -84,6 +87,11 @@ impl<B: BufRead> Csv<B> {
         }
         Ok(Vec::new())
     }
+
+    /// Get column count
+    pub fn len(&self) -> Option<usize> {
+        self.len
+    }
 }
 
 impl Csv<BufReader<File>> {
@@ -108,7 +116,7 @@ impl<B: BufRead> Iterator for Csv<B> {
     type Item = Result<Row>;
     fn next(&mut self) -> Option<Result<Row>> {
         let mut buf = Vec::new();
-        let mut cols = Vec::new();
+        let mut cols = self.len.map_or_else(|| Vec::new(), |n| Vec::with_capacity(n));
         match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
@@ -119,6 +127,13 @@ impl<B: BufRead> Iterator for Csv<B> {
                     }
                 }
                 cols.push(buf.len());
+                if let Some(n) = self.len {
+                    if n != cols.len() {
+                        return Some(Err(Error::ColumnMismatch(n, cols.len())));
+                    }
+                } else {
+                    self.len = Some(cols.len());
+                }
                 Some(Ok(Row {
                     line: buf,
                     cols: cols,
