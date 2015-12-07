@@ -4,10 +4,10 @@ pub mod columns;
 pub mod error;
 
 use self::columns::{Columns, BytesColumns};
-use std::io::{BufRead, BufReader, Write, Cursor};
 use std::fs::File;
+use std::io::{self, BufRead, BufReader, Write};
+use std::iter::{Enumerate, Iterator};
 use std::path::Path;
-use std::iter::Iterator;
 
 use error::{Error, Result};
 use rustc_serialize::Decodable;
@@ -87,29 +87,21 @@ impl<B: BufRead> Csv<B> {
 }
 
 impl Csv<BufReader<File>> {
-
     /// Creates a csv from a file path
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Csv<BufReader<File>>>
     {
         let reader = BufReader::new(try!(File::open(path)));
         Ok(Csv::from_reader(reader))
     }
-
 }
 
-impl Csv<BufReader<Cursor<Vec<u8>>>> {
+impl<'a> Csv<&'a [u8]> {
     /// Creates a CSV reader for an in memory string buffer.
-    pub fn from_string<'a, S>(s: S) -> Csv<Cursor<Vec<u8>>>
-            where S: Into<String> {
-        Csv::from_bytes(s.into().into_bytes())
-    }
-
-    /// Creates a CSV reader for an in memory buffer of bytes.
-    pub fn from_bytes<'a, V>(bytes: V) -> Csv<Cursor<Vec<u8>>>
-            where V: Into<Vec<u8>> {
-        Csv::from_reader(Cursor::new(bytes.into()))
+    pub fn from_string(s: &'a str) -> Csv<&'a [u8]> {
+        Csv::from_reader(s.as_bytes())
     }
 }
+
 
 /// Iterator on csv returning rows
 impl<B: BufRead> Iterator for Csv<B> {
@@ -120,9 +112,9 @@ impl<B: BufRead> Iterator for Csv<B> {
         match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
-                if !buf.is_empty() && buf[buf.len() - 1] == b'\n' {
+                if buf.ends_with(&[b'\n']) {
                     buf.pop();
-                    if !buf.is_empty() && buf[buf.len() - 1] == b'\r' {
+                    if buf.ends_with(&[b'\r']) {
                         buf.pop();
                     }
                 }
@@ -150,12 +142,13 @@ impl Row {
     /// Gets an iterator over columns
     pub fn columns<'a>(&'a self) -> Result<Columns<'a>> {
         match ::std::str::from_utf8(&self.line) {
-            Err(_) => Err(Error::from(::std::io::Error::new(::std::io::ErrorKind::InvalidData,
+            Err(_) => Err(Error::from(io::Error::new(io::ErrorKind::InvalidData,
                                             "stream did not contain valid UTF-8"))),
             Ok(s) => Ok(Columns::new(s, &self.cols)),
         }
     }
 
+    ///  Creates a new BytesColumns iterator over &[u8]
     pub fn bytes_columns<'a>(&'a self) -> BytesColumns<'a> {
         BytesColumns::new(&self.line, &self.cols)
     }
@@ -166,6 +159,11 @@ impl Row {
         Decodable::decode(&mut columns)
     }
 
+    /// Gets columns count
+    pub fn len(&self) -> usize {
+        self.cols.len()
+    }
+
 }
 
 /// Consumes bytes as long as they are within quotes
@@ -174,7 +172,9 @@ impl Row {
 /// - Ok(true) if entirely consumed
 /// - Ok(false) if no issue but it reached end of buffer
 /// - Err(Error::UnescapeQuote) if a quote if found within the column
-fn consume_quote<'a>(bytes: &'a mut ::std::iter::Enumerate<::std::slice::Iter<u8>>, delimiter: u8) -> Result<bool> {
+fn consume_quote<'a>(bytes: &'a mut Enumerate<::std::slice::Iter<u8>>, delimiter: u8)
+    -> Result<bool>
+{
     loop {
         match bytes.next() {
             Some((_, &b'\"')) => {
@@ -202,14 +202,12 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
         let (done, used) = {
             let available = match r.fill_buf() {
                 Ok(n) => n,
-                Err(ref e) if e.kind() == ::std::io::ErrorKind::Interrupted => continue,
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(Error::from(e))
             };
             
             if available.is_empty() { return Ok(read); }
-            
             let mut bytes = available.iter().enumerate();
-            let (mut done, mut used) = (false, available.len());
 
             // previous buffer was exhausted without exiting from quotes
             if in_quote && try!(consume_quote(&mut bytes, delimiter)) {
@@ -217,6 +215,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
             }
 
             // use a simple loop instead of for loop to allow nested loop
+            let (mut done, mut used) = (false, available.len());
             loop {
                 match bytes.next() {
                     Some((i, &b'\"')) => {

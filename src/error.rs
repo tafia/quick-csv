@@ -18,6 +18,7 @@ pub enum Error {
     UnexpextedQuote,
 }
 
+/// Result type
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 impl fmt::Display for Error {

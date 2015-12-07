@@ -3,6 +3,7 @@ use rustc_serialize as serialize;
 use error::{Result, Error};
 use std::slice::Iter;
 
+/// Iterator over bytes slice of columns
 pub struct BytesColumns<'a> {
     pos: usize,
     line: &'a [u8],
@@ -16,7 +17,7 @@ impl<'a> Iterator for BytesColumns<'a> {
         self.iter.next().map(|p| {
             let s = &self.line[self.pos..*p];
             self.pos = *p + 1;
-            if !s.is_empty() && s[0] == b'\"' { &s[1..s.len() - 1] } else { s }
+            if s.starts_with(&[b'\"']) { &s[1..s.len() - 1] } else { s }
         })
     }
 
@@ -34,6 +35,7 @@ impl<'a> ExactSizeIterator for BytesColumns<'a> {
 
 impl<'a> BytesColumns<'a> {
 
+    /// Creates a new BytesColumns iterator
     pub fn new(line: &'a [u8], cols: &'a [usize]) -> BytesColumns<'a> {
         BytesColumns {
             pos: 0,
@@ -44,6 +46,7 @@ impl<'a> BytesColumns<'a> {
 
 }
 
+/// &str iterator on columns
 pub struct Columns<'a> {
     pos: usize,
     line: &'a str,
@@ -75,6 +78,7 @@ impl<'a> ExactSizeIterator for Columns<'a> {
 
 impl<'a> Columns<'a> {
 
+    /// Creates a new Columns iterator
     pub fn new(line: &'a str, cols: &'a [usize]) -> Columns<'a> {
         Columns {
             pos: 0,
@@ -90,7 +94,7 @@ impl<'a> Columns<'a> {
         })
     }
 
-    pub fn from_str<T>(&mut self) -> Result<T>
+    fn from_str<T>(&mut self) -> Result<T>
         where T: FromStr + ::std::fmt::Debug, 
               T::Err: ::std::fmt::Debug
     {
@@ -100,6 +104,7 @@ impl<'a> Columns<'a> {
                     self.len(), col, e))))
     }
 
+    /// Deserializes a Columns iterator into any Decodable type
     pub fn decode<T: serialize::Decodable>(&mut self) -> Result<T> {
         serialize::Decodable::decode(self)
     }
