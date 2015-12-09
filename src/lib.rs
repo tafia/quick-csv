@@ -48,7 +48,9 @@ pub struct Csv<B: BufRead> {
     /// header
     has_header: bool,
     /// column count
-    len: Option<usize>
+    len: Option<usize>,
+    /// if was error, exit next
+    exit: bool,
 }
 
 impl<B: BufRead> Csv<B> {
@@ -61,7 +63,8 @@ impl<B: BufRead> Csv<B> {
             reader: reader,
             delimiter: b',',
             has_header: false,
-	    len: None,
+            len: None,
+            exit: false,
         }
     }
 
@@ -115,31 +118,33 @@ impl<'a> Csv<&'a [u8]> {
 impl<B: BufRead> Iterator for Csv<B> {
     type Item = Result<Row>;
     fn next(&mut self) -> Option<Result<Row>> {
+        if self.exit { return None; }
         let mut buf = Vec::new();
         let mut cols = self.len.map_or_else(|| Vec::new(), |n| Vec::with_capacity(n));
         match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
-                if buf.ends_with(&[b'\n']) {
+                if buf.ends_with(&[b'\r']) {
                     buf.pop();
-                    if buf.ends_with(&[b'\r']) {
-                        buf.pop();
-                    }
                 }
                 cols.push(buf.len());
+                let c = cols.len();
                 if let Some(n) = self.len {
-                    if n != cols.len() {
-                        return Some(Err(Error::ColumnMismatch(n, cols.len())));
+                    if n != c {
+                        return Some(Err(Error::ColumnMismatch(n, c)));
                     }
                 } else {
-                    self.len = Some(cols.len());
+                    self.len = Some(c);
                 }
                 Some(Ok(Row {
                     line: buf,
                     cols: cols,
                 }))
             }
-            Err(e) => Some(Err(Error::from(e)))
+            Err(e) => {
+                self.exit = true;
+                Some(Err(e))
+            },
         }
     }
 }
@@ -202,8 +207,8 @@ fn consume_quote<'a>(bytes: &'a mut Enumerate<::std::slice::Iter<u8>>, delimiter
                     Some((_, _)) => return Err(Error::UnescapedQuote),
                 }
             },
-            Some((_, _)) => (),
             None => return Ok(false),
+            _ => (),
         }
     }
 }
@@ -213,15 +218,16 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
 {
     let mut read = 0;
     let mut in_quote = false;
-    loop {
-        let (done, used) = {
+    let mut done = false;
+    while !done {
+        let used = {
             let available = match r.fill_buf() {
+                Ok(n) if n.is_empty() => return Ok(read),
                 Ok(n) => n,
                 Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                Err(e) => return Err(Error::from(e))
+                Err(e) => return Err(Error::from(e)),
             };
             
-            if available.is_empty() { return Ok(read); }
             let mut bytes = available.iter().enumerate();
 
             // previous buffer was exhausted without exiting from quotes
@@ -230,7 +236,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
             }
 
             // use a simple loop instead of for loop to allow nested loop
-            let (mut done, mut used) = (false, available.len());
+            let used: usize;
             loop {
                 match bytes.next() {
                     Some((i, &b'\"')) => {
@@ -243,7 +249,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                         }
                     },
                     Some((i, &b'\n')) => {
-                        let _ = buf.write(&available[..i + 1]);
+                        let _ = buf.write(&available[..i]);
                         done = true;
                         used = i + 1;
                         break;
@@ -253,16 +259,15 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                     },
                     None => {
                         let _ = buf.write(available);
+                        used = available.len();
                         break;
                     },
                 }
             }
-            (done, used)
+            used
         };
         r.consume(used);
         read += used;
-        if done {
-            return Ok(read);
-        }
     }
+    Ok(read)
 }
