@@ -6,7 +6,7 @@ pub mod error;
 use self::columns::{Columns, BytesColumns};
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
-use std::iter::{Enumerate, Iterator};
+use std::iter::Iterator;
 use std::path::Path;
 
 use error::{Error, Result};
@@ -192,23 +192,27 @@ impl Row {
 /// - Ok(true) if entirely consumed
 /// - Ok(false) if no issue but it reached end of buffer
 /// - Err(Error::UnescapeQuote) if a quote if found within the column
-fn consume_quote<'a>(bytes: &'a mut Enumerate<::std::slice::Iter<u8>>, delimiter: u8)
-    -> Result<bool>
-{
-    loop {
-        match bytes.next() {
-            Some((_, &b'\"')) => {
-                match bytes.clone().next() {
-                    Some((_, &b'\"')) => {
-                        bytes.next(); // escaping quote
-                    },
-                    None | Some((_, &b'\r')) | Some((_, &b'\n')) => return Ok(true),
-                    Some((_, d)) if *d == delimiter => return Ok(true),
-                    Some((_, _)) => return Err(Error::UnescapedQuote),
-                }
-            },
-            None => return Ok(false),
-            _ => (),
+macro_rules! consume_quote {
+    ($bytes: expr, $delimiter: expr, $in_quote: expr) => {
+        $in_quote = false;
+        loop {
+            match $bytes.next() {
+                Some((_, &b'\"')) => {
+                    match $bytes.clone().next() {
+                        Some((_, &b'\"')) => {
+                            $bytes.next(); // escaping quote
+                        },
+                        None | Some((_, &b'\r')) | Some((_, &b'\n')) => break,
+                        Some((_, d)) if *d == $delimiter => break,
+                        Some((_, _)) => return Err(Error::UnescapedQuote),
+                    }
+                },
+                None => {
+                    $in_quote = true;
+                    break;
+                },
+                _ => (),
+            }
         }
     }
 }
@@ -231,8 +235,8 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
             let mut bytes = available.iter().enumerate();
 
             // previous buffer was exhausted without exiting from quotes
-            if in_quote && try!(consume_quote(&mut bytes, delimiter)) {
-                in_quote = false;
+            if in_quote {
+                consume_quote!(bytes, delimiter, in_quote);
             }
 
             // use a simple loop instead of for loop to allow nested loop
@@ -241,9 +245,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                 match bytes.next() {
                     Some((i, &b'\"')) => {
                         if i == 0 || available[i - 1] == delimiter {
-                            if !try!(consume_quote(&mut bytes, delimiter)) {
-                                in_quote = true;
-                            }
+                            consume_quote!(bytes, delimiter, in_quote);
                         } else {
                             return Err(Error::UnexpextedQuote);
                         }
