@@ -73,51 +73,6 @@ macro_rules! decodes_to {
     );
 }
 
-// macro_rules! writes_as {
-//     ($name:ident, $vec:expr, $csv:expr) => (
-//         writes_as!($name, $vec, $csv, |wtr| wtr);
-//     );
-//     ($name:ident, $vec:expr, $csv:expr, $config:expr) => (
-//         #[test]
-//         fn $name() {
-//             let mut wtr = $config(Writer::from_memory());
-//             for row in $vec.into_iter() {
-//                 wtr.write(row.into_iter()).unwrap();
-//             }
-//             assert_eq!(wtr.as_string(), $csv);
-//         }
-//     );
-// }
-
-// macro_rules! fail_writes_as {
-//     ($name:ident, $vec:expr, $csv:expr) => (
-//         fail_writes_as!($name, $vec, $csv, |wtr| wtr);
-//     );
-//     ($name:ident, $vec:expr, $csv:expr, $config:expr) => (
-//         #[test]
-//         #[should_panic]
-//         fn $name() {
-//             let mut wtr = $config(Writer::from_memory());
-//             for row in $vec.into_iter() {
-//                 wtr.write(row.into_iter()).unwrap();
-//             }
-//             assert_eq!(wtr.as_string(), $csv);
-//         }
-//     );
-// }
-
-// macro_rules! encodes_as {
-//     ($name:ident, $vec:expr, $csv:expr) => (
-//         #[test]
-//         fn $name() {
-//             let mut wtr = Writer::from_memory();
-//             for row in $vec.into_iter() {
-//                 wtr.encode(row).unwrap();
-//             }
-//             assert_eq!(wtr.as_string(), $csv);
-//         }
-//     );
-// }
 
 parses_to!(one_row_one_field, "a", vec![vec!["a"]]);
 parses_to!(one_row_many_fields, "a,b,c", vec![vec!["a", "b", "c"]]);
@@ -128,9 +83,9 @@ parses_to!(one_row_trailing_comma_lf, "a,b,\n", vec![vec!["a", "b", ""]]);
 parses_to!(one_row_one_field_crlf, "a\r\n", vec![vec!["a"]]);
 parses_to!(one_row_many_fields_crlf, "a,b,c\r\n", vec![vec!["a", "b", "c"]]);
 parses_to!(one_row_trailing_comma_crlf, "a,b,\r\n", vec![vec!["a", "b", ""]]);
-// parses_to!(one_row_one_field_cr, "a\r", vec![vec!["a"]]);
-// parses_to!(one_row_many_fields_cr, "a,b,c\r", vec![vec!["a", "b", "c"]]);
-// parses_to!(one_row_trailing_comma_cr, "a,b,\r", vec![vec!["a", "b", ""]]);
+parses_to!(one_row_one_field_cr, "a\r", vec![vec!["a"]]);
+parses_to!(one_row_many_fields_cr, "a,b,c\r", vec![vec!["a", "b", "c"]]);
+parses_to!(one_row_trailing_comma_cr, "a,b,\r", vec![vec!["a", "b", ""]]);
 
 parses_to!(many_rows_one_field, "a\nb", vec![vec!["a"], vec!["b"]]);
 parses_to!(many_rows_many_fields,
@@ -148,17 +103,9 @@ parses_to!(many_rows_many_fields_crlf,
            vec![vec!["a", "b", "c"], vec!["x", "y", "z"]]);
 parses_to!(many_rows_trailing_comma_crlf,
            "a,b,\r\nx,y,\r\n", vec![vec!["a", "b", ""], vec!["x", "y", ""]]);
-// parses_to!(many_rows_one_field_cr, "a\rb\r", vec![vec!["a"], vec!["b"]]);
-// parses_to!(many_rows_many_fields_cr,
-//            "a,b,c\rx,y,z\r", vec![vec!["a", "b", "c"], vec!["x", "y", "z"]]);
-// parses_to!(many_rows_trailing_comma_cr,
-//            "a,b,\rx,y,\r", vec![vec!["a", "b", ""], vec!["x", "y", ""]]);
 
 // parses_to!(trailing_lines_no_record,
 //            "\n\n\na,b,c\nx,y,z\n\n\n",
-//            vec![vec!["a", "b", "c"], vec!["x", "y", "z"]]);
-// parses_to!(trailing_lines_no_record_cr,
-//            "\r\r\ra,b,c\rx,y,z\r\r\r",
 //            vec![vec!["a", "b", "c"], vec!["x", "y", "z"]]);
 // parses_to!(trailing_lines_no_record_crlf,
 //            "\r\n\r\n\r\na,b,c\r\nx,y,z\r\n\r\n\r\n",
@@ -166,7 +113,7 @@ parses_to!(many_rows_trailing_comma_crlf,
 parses_to!(empty_string_no_headers, "", vec![]);
 parses_to!(empty_string_headers, "", vec![],
             |rdr: Csv<_>| rdr.has_header(true));
-// parses_to!(empty_lines, "\n\n\n\n", vec![vec![""], vec![""], vec![""], vec![""]]);
+parses_to!(empty_lines, "\n\n\n\n", vec![vec![""], vec![""], vec![""], vec![""]]);
 // parses_to!(empty_lines_interspersed, "\n\na,b\n\n\nx,y\n\n\nm,n\n",
 //            vec![vec!["a", "b"], vec!["x", "y"], vec!["m", "n"]]);
 // parses_to!(empty_lines_crlf, "\r\n\r\n\r\n\r\n", vec![]);
@@ -181,18 +128,6 @@ parses_to!(empty_string_headers, "", vec![],
 // parses_to!(empty_lines_interspersed_cr, "\r\ra,b\r\r\rx,y\r\r\rm,n\r",
 //            vec![vec!["a", "b"], vec!["x", "y"], vec!["m", "n"]]);
 
-// parses_to!(term_weird, "zza,bzc,dzz", vec![vec!["a", "b"], vec!["c", "d"]],
-//            |rdr: Csv<_>| {
-//                rdr.record_terminator(RecordTerminator::Any(b'z'))
-//            });
-
-// parses_to!(ascii_delimited, "a\x1fb\x1ec\x1fd",
-//            vec![vec!["a", "b"], vec!["c", "d"]],
-//            |rdr: Csv<_>| {
-//                rdr.delimiter(b'\x1f')
-//                   .record_terminator(RecordTerminator::Any(b'\x1e'))
-//            });
-
 parses_to!(quote_empty, "\"\"", vec![vec![""]]);
 parses_to!(quote_lf, "\"\"\n", vec![vec![""]]);
 parses_to!(quote_space, "\" \"", vec![vec![" "]]);
@@ -202,34 +137,21 @@ fail_parses_to!(quote_outer_space, "  \"a\"  ", vec![vec!["  \"a\"  "]]);
 // parses_to!(quote_change, "zaz", vec![vec!["a"]],
 //            |rdr: Csv<_>| rdr.quote(b'z'));
 
-// This one is pretty hokey. I don't really know what the "right" behavior is.
-// parses_to!(quote_delimiter, ",a,,b", vec![vec!["a,b"]],
-//            |rdr: Csv<_>| rdr.quote(b','));
-
-// Another hokey one...
-// parses_to!(quote_no_escapes, r#""a\"b""#, vec![vec![r#"a\b""#]]);
-// parses_to!(quote_escapes_no_double, r#""a""b""#, vec![vec![r#"a"b""#]],
-//            |rdr: Csv<_>| rdr.double_quote(false));
-// parses_to!(quote_escapes, r#""a\"b""#, vec![vec![r#"a"b"#]],
-//            |rdr: Csv<_>| rdr.escape(Some(b'\\')));
-// parses_to!(quote_escapes_change, r#""az"b""#, vec![vec![r#"a"b"#]],
-//            |rdr: Csv<_>| rdr.escape(Some(b'z')));
-
 parses_to!(delimiter_tabs, "a\tb", vec![vec!["a", "b"]],
            |rdr: Csv<_>| rdr.delimiter(b'\t'));
 parses_to!(delimiter_weird, "azb", vec![vec!["a", "b"]],
            |rdr: Csv<_>| rdr.delimiter(b'z'));
 
-// parses_to!(headers_absent, "a\nb", vec![vec!["b"]],
-//            |rdr: Csv<_>| rdr.has_headers(true));
-// 
-// parses_to!(flexible_rows, "a\nx,y", vec![vec!["a"], vec!["x", "y"]],
-//            |rdr: Csv<_>| rdr.flexible(true));
-// parses_to!(flexible_rows2, "a,b\nx", vec![vec!["a", "b"], vec!["x"]],
-//            |rdr: Csv<_>| rdr.flexible(true));
-// 
-// fail_parses_to!(nonflexible, "a\nx,y", vec![]);
-// fail_parses_to!(nonflexible2, "a,b\nx", vec![]);
+parses_to!(headers_absent, "a\nb", vec![vec!["b"]],
+           |rdr: Csv<_>| rdr.has_header(true));
+ 
+parses_to!(flexible_rows, "a\nx,y", vec![vec!["a"], vec!["x", "y"]],
+           |rdr: Csv<_>| rdr.flexible(true));
+parses_to!(flexible_rows2, "a,b\nx", vec![vec!["a", "b"], vec!["x"]],
+           |rdr: Csv<_>| rdr.flexible(true));
+
+fail_parses_to!(nonflexible, "a\nx,y", vec![]);
+fail_parses_to!(nonflexible2, "a,b\nx", vec![]);
 
 #[derive(Debug, RustcDecodable, RustcEncodable, PartialEq, Eq)]
 enum Val { Unsigned(usize), Signed(isize), Bool(bool) }
@@ -257,135 +179,51 @@ decodes_to!(decode_tail, "abc,1,2,3,4", (String, Vec<usize>),
 enum MyEnum { Enum1, Enum2 }
 decodes_to!(decode_myenum, "Enum1,Enum1,Enum2", (MyEnum, MyEnum, MyEnum),
             vec![(MyEnum::Enum1, MyEnum::Enum1, MyEnum::Enum2)]);
-// writes_as!(wtr_one_record_one_field, vec![vec!["a"]], "a\n");
-// writes_as!(wtr_one_record_many_field, vec![vec!["a", "b"]], "a,b\n");
-// writes_as!(wtr_many_record_one_field, vec![vec!["a"], vec!["b"]], "a\nb\n");
-// writes_as!(wtr_many_record_many_field,
-//            vec![vec!["a", "b"], vec!["x", "y"]], "a,b\nx,y\n");
-// writes_as!(wtr_one_record_one_field_crlf, vec![vec!["a"]], "a\r\n",
-//            |wtr: Writer<_>| wtr.record_terminator(RecordTerminator::CRLF));
-// writes_as!(wtr_one_record_many_field_crlf, vec![vec!["a", "b"]], "a,b\r\n",
-//            |wtr: Writer<_>| wtr.record_terminator(RecordTerminator::CRLF));
-// writes_as!(wtr_many_record_one_field_crlf,
-//            vec![vec!["a"], vec!["b"]], "a\r\nb\r\n",
-//            |wtr: Writer<_>| wtr.record_terminator(RecordTerminator::CRLF));
-// writes_as!(wtr_many_record_many_field_crlf,
-//            vec![vec!["a", "b"], vec!["x", "y"]], "a,b\r\nx,y\r\n",
-//            |wtr: Writer<_>| wtr.record_terminator(RecordTerminator::CRLF));
-// 
-// writes_as!(wtr_tabs, vec![vec!["a", "b"]], "a\tb\n",
-//            |wtr: Writer<_>| wtr.delimiter(b'\t'));
-// writes_as!(wtr_weird, vec![vec!["a", "b"]], "azb\n",
-//            |wtr: Writer<_>| wtr.delimiter(b'z'));
-// writes_as!(wtr_flexible, vec![vec!["a"], vec!["a", "b"]], "a\na,b\n",
-//            |wtr: Writer<_>| wtr.flexible(true));
-// writes_as!(wtr_flexible2, vec![vec!["a", "b"], vec!["a"]], "a,b\na\n",
-//            |wtr: Writer<_>| wtr.flexible(true));
-// 
-// writes_as!(wtr_quoted_lf, vec![vec!["a\n"]], "\"a\n\"\n");
-// writes_as!(wtr_quoted_cr, vec![vec!["a\r"]], "\"a\r\"\n");
-// writes_as!(wtr_quoted_quotes, vec![vec!["\"a\""]], r#""""a"""
-// "#);
-// writes_as!(wtr_quoted_delim, vec![vec!["a,b"]], "\"a,b\"\n");
-// 
-// writes_as!(wtr_empty_row, vec![vec![""]], "\"\"\n");
-// writes_as!(wtr_empty_rows, vec![vec![""], vec!["a"], vec![""]],
-//            "\"\"\na\n\"\"\n");
-// writes_as!(wtr_empty_field_one_row, vec![vec!["", "a"]], ",a\n");
-// writes_as!(wtr_empty_field_rows,
-//            vec![vec!["", "a"], vec!["a", "b"], vec!["", "a"]],
-//            ",a\na,b\n,a\n");
-// 
-// writes_as!(wtr_always_quote, vec![vec!["a"]], "\"a\"\n",
-//            |wtr: Writer<_>| wtr.quote_style(QuoteStyle::Always));
-// writes_as!(wtr_never_quote, vec![vec!["a"]], "a\n",
-//            |wtr: Writer<_>| wtr.quote_style(QuoteStyle::Never));
-// 
-// writes_as!(wtr_escape, vec![vec!["a\"b"]], "\"a\\\"b\"\n",
-//            |wtr: Writer<_>| wtr.double_quote(false));
-// writes_as!(wtr_escape_weird, vec![vec!["a\"b"]], "\"az\"b\"\n",
-//            |wtr: Writer<_>| wtr.double_quote(false).escape(b'z'));
-// 
-// writes_as!(wtr_quote_weird, vec![vec!["a,b"]], "za,bz\n",
-//            |wtr: Writer<_>| wtr.quote(b'z'));
-// 
-// fail_writes_as!(wtr_no_rows,
-//                 { let rows: Vec<Vec<&str>> = vec![vec![]]; rows }, "");
-// fail_writes_as!(wtr_noflexible, vec![vec!["a"], vec!["a", "b"]], "a\na,b\n");
-// fail_writes_as!(wtr_noflexible2, vec![vec!["a", "b"], vec!["a"]], "a,b\na\n");
-// fail_writes_as!(wtr_never_quote_needs_quotes, vec![vec![","]], "\",\"",
-//                 |wtr: Writer<_>| wtr.quote_style(QuoteStyle::Never));
-// 
-// encodes_as!(encode_int, vec![(1usize,)], "1\n");
-// encodes_as!(encode_many_int, vec![(1usize, 2i16)], "1,2\n");
-// encodes_as!(encode_float, vec![(1f64, 1.0f64, 1.5f64)], "1.0,1.0,1.5\n");
-// encodes_as!(encode_char, vec![('a',)], "a\n");
-// encodes_as!(encode_none, vec![(None::<bool>,)], "\"\"\n");
-// encodes_as!(encode_some, vec![(Some(true),)], "true\n");
-// encodes_as!(encode_val,
-//             vec![(Val::Bool(false), Val::Signed(-5), Val::Unsigned(5))],
-//             "false,-5,5\n");
+#[test]
+fn no_headers_no_skip_one_record() {
+    let mut d = Csv::from_string("a,b");
+    d.headers();
+    let rows: Vec<_> = d.collect();
+    assert_eq!(rows.len(), 1);
+}
 
-// #[test]
-// fn no_headers_no_skip_one_record() {
-//     let mut d = Csv::from_string("a,b");
-//     d.headers().unwrap();
-//     let rows: Vec<Result<Vec<String>>> = d.records().collect();
-//     assert_eq!(rows.len(), 1);
-// }
-// 
 // #[test]
 // fn no_headers_first_record() {
 //     let mut d = Csv::from_string("a,b");
-//     let r = d.headers().unwrap();
+//     let r = d.headers();
 //     assert_eq!(r, vec!("a".to_string(), "b".to_string()));
 // }
-// 
-// #[test]
-// fn no_headers_no_skip() {
-//     let mut d = Csv::from_string("a,b\nc,d");
-//     d.headers().unwrap();
-//     let rows: Vec<Result<Vec<String>>> = d.records().collect();
-//     assert_eq!(rows.len(), 2);
-// }
-// 
-// #[test]
-// fn headers_trailing_lf() {
-//     let mut d = Csv::from_string("a,b,c\n\n\n\n");
-//     assert_eq!(d.headers().unwrap(),
-//                vec!("a".to_string(), "b".to_string(), "c".to_string()));
-//     assert!(d.next_bytes().is_end());
-// }
-// 
-// #[test]
-// fn headers_eof() {
-//     let mut d = Csv::from_string("");
-//     assert!(d.headers().is_ok());
-//     assert!(d.done());
-// }
 
-// fn bytes<'a, S>(bs: S) -> ByteString where S: Into<Vec<u8>> { bs.into() }
+#[test]
+fn no_headers_no_skip() {
+    let mut d = Csv::from_string("a,b\nc,d");
+    d.headers();
+    let rows: Vec<_> = d.collect();
+    assert_eq!(rows.len(), 2);
+}
 
-// #[test]
-// fn byte_strings() {
-//     let mut d = Csv::from_string("abc,xyz");
-//     let r = d.byte_records().next().unwrap().unwrap();
-//     assert_eq!(r, vec![bytes(&b"abc"[..]), bytes(&b"xyz"[..])]);
-// }
-// 
-// #[test]
-// fn byte_strings_invalid_utf8() {
-//     let mut d = Csv::from_bytes(&b"a\xffbc,xyz"[..]);
-//     let r = d.byte_records().next().unwrap().unwrap();
-//     assert_eq!(r, vec![bytes(&b"a\xffbc"[..]), bytes(&b"xyz"[..])]);
-// }
-// 
-// #[test]
-// #[should_panic]
-// fn invalid_utf8() {
-//     let mut d = Csv::from_bytes(&b"a\xffbc,xyz"[..]);
-//     let _ = d.next().unwrap();
-// }
+#[test]
+fn byte_strings() {
+    let mut d = Csv::from_string("abc,xyz");
+    let r = d.next().unwrap().unwrap();
+    let c = r.bytes_columns().collect::<Vec<_>>();
+    assert_eq!(c, vec![b"abc", b"xyz"]);
+}
+
+#[test]
+fn byte_strings_invalid_utf8() {
+    let mut d = Csv::from_reader(&b"a\xffbc,xyz"[..]);
+    let r = d.next().unwrap().unwrap();
+    let c = r.bytes_columns().collect::<Vec<_>>();
+    assert_eq!(c, vec![&b"a\xffbc"[..], &b"xyz"[..]]);
+}
+
+#[test]
+#[should_panic]
+fn invalid_utf8() {
+    let mut d = Csv::from_reader(&b"a\xffbc,xyz"[..]);
+    let _ = d.next().unwrap().unwrap().columns().unwrap();
+}
 
 #[test]
 fn seeking() {
@@ -405,32 +243,3 @@ fn seeking() {
         assert_eq!(vals, vec!((1, 2), (3, 4), (5, 6)));
     }
 }
-
-// #[test]
-// fn raw_access() {
-//     let mut rdr = Csv::from_string("1,2");
-//     let mut fields = vec![];
-//     while let Some(field) = rdr.next_bytes().into_iter_result() {
-//         fields.push(field.unwrap().to_vec());
-//     }
-//     assert_eq!(fields[0], b"1".to_vec());
-// }
-
-// Please help me get this test to pass.
-// #[test]
-// #[ignore]
-// fn raw_unsafe_access() {
-//     let mut rdr = Csv::from_string("1,2");
-//     let fields = unsafe {
-//         rdr.byte_fields().collect::<Result<Vec<_>>>().unwrap()
-//     };
-//     assert_eq!(fields[0], b"1");
-// }
-
-// #[test]
-// fn scratch() {
-//     let mut rdr = Csv::from_string("1");
-//     for row in rdr.records() {
-//         let _ = writeln!(&mut io::stderr(), "{:?}", row);
-//     }
-// }

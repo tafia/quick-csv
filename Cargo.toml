@@ -1,7 +1,12 @@
 [package]
 name = "quick-csv"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Johann Tuffe <tafia973@gmail.com"]
+description = "quick csv reader and decoder"
+repository = "https://github.com/tafia/quick-csv"
+readme = "README.md"
+keywords = ["csv", "delimited", "parser"]
+license = "MIT"
 
 [dependencies]
 rustc-serialize="0.3"

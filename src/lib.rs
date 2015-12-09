@@ -46,7 +46,11 @@ pub struct Csv<B: BufRead> {
     /// reader
     reader: B,
     /// header
-    has_header: bool,
+    has_headers: bool,
+    /// header
+    headers: Option<Vec<String>>,
+    /// flexible column count
+    flexible: bool,
     /// column count
     len: Option<usize>,
     /// if was error, exit next
@@ -62,7 +66,9 @@ impl<B: BufRead> Csv<B> {
         Csv {
             reader: reader,
             delimiter: b',',
-            has_header: false,
+            has_headers: false,
+            headers: None,
+            flexible: false,
             len: None,
             exit: false,
         }
@@ -74,21 +80,34 @@ impl<B: BufRead> Csv<B> {
         self
     }
 
+    /// Sets flexible columns
+    pub fn flexible(mut self, flexible: bool) -> Csv<B> {
+        self.flexible = flexible;
+        self
+    }
+
     /// Defines whether there is a header or not
-    pub fn has_header(mut self, has_header: bool) -> Csv<B> {
-        self.has_header = has_header;
+    pub fn has_header(mut self, has_headers: bool) -> Csv<B> {
+        self.has_headers = has_headers;
+        let _ = self.headers();
         self
     }
 
    /// gets first row as Vec<String>
-    pub fn header(&mut self) -> Result<Vec<String>> {
-        if self.has_header {            
+    pub fn headers(&mut self) -> Vec<String> {
+        if let Some(ref h) = self.headers {
+            return h.clone();
+        }
+        if self.has_headers {            
             if let Some(r) = self.next() {
-                let r = try!(r);
-                return r.decode();
+                if let Ok(r) = r {
+                    let h = r.decode().unwrap_or(Vec::new());
+                    self.headers = Some(h.clone());
+                    return h;
+                }
             }
         }
-        Ok(Vec::new())
+        Vec::new()
     }
 
     /// Get column count
@@ -130,7 +149,7 @@ impl<B: BufRead> Iterator for Csv<B> {
                 cols.push(buf.len());
                 let c = cols.len();
                 if let Some(n) = self.len {
-                    if n != c {
+                    if n != c && !self.flexible {
                         return Some(Err(Error::ColumnMismatch(n, c)));
                     }
                 } else {
