@@ -1,3 +1,8 @@
+//! Column management module
+//! 
+//! Provides convenient or fast column conversions
+//! Deserialize columns into a `Decodable` type
+
 use std::str::FromStr;
 use rustc_serialize as serialize;
 use error::{Result, Error};

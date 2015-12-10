@@ -1,3 +1,55 @@
+//! Quick Csv reader which performs **very** well.
+//! 
+//! ## Example
+//! 
+//! First, create a `Csv` from a `BufRead` reader, a file or a string
+//! 
+//! ```rust
+//! extern crate quick_csv;
+//! 
+//! fn main() {
+//!     let data = "a,b\r\nc,d\r\ne,f";
+//!     let csv = quick_csv::Csv::from_string(data);
+//!     for row in csv.into_iter() {
+//!         // work on csv row ...
+//!         if let Ok(_) = row {
+//!             println!("new row!");
+//!         } else {
+//!             println!("cannot read next line");
+//!         }
+//!     }
+//! }
+//! ```
+//! 
+//! `Row` is on the other hand provides 3 methods to access csv columns:
+//! - `columns`: 
+//!   - iterator over columns.
+//!   - Iterator item is a `&str`, which means you only have to `parse()` it to the needed type and you're done
+//! 
+//!   ```rust
+//!   # let row = quick_csv::Csv::from_string("a,b,c,d,e,38,f").next().unwrap().unwrap();
+//!   let mut cols = row.columns().expect("cannot convert to utf8");
+//!   let fifth = cols.nth(5).unwrap().parse::<f64>().unwrap();
+//!   println!("Doubled fifth column: {}", fifth * 2.0);
+//!   ```
+//! 
+//! - `decode`:
+//!   - deserialize into you `Decodable` struct, a-la rust-csv.
+//!   - most convenient way to deal with your csv data
+//! 
+//!   ```rust
+//!   let row = quick_csv::Csv::from_string("a,b,54").next().unwrap().unwrap();
+//!   if let Ok((col1, col2, col3)) = row.decode::<(String, u64, f64)>() {
+//!       println!("col1: '{}', col2: {}, col3: {}", col1, col2, col3);
+//!   }
+//!   ``` 
+//! 
+//! - `bytes_columns`:
+//!   - similar to `columns` but columns are of type `&[u8]`, which means you may want to convert it to &str first
+//!   - performance gain compared to `columns` is minimal, use it only if you *really* need to as it is less convenient
+
+#![deny(missing_docs)]
+
 extern crate rustc_serialize;
 
 pub mod columns;

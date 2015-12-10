@@ -1,3 +1,8 @@
+//! Error management module
+//! 
+//! Provides all csv error conversion and description
+//! Also provides `Result` as a alias of `Result<_, Error>
+
 use std::fmt;
 use std::io;
 

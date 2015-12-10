@@ -1,18 +1,23 @@
 # quick-csv
-
-Fast Csv reader which performs **very** well.
+Quick Csv reader which performs **very** well.
 
 ## Example
 
-First, create a `Csv`, either from a file or from a `BufRead` reader.
+First, create a `Csv` from a `BufRead` reader, a file or a string
 
 ```rust
 extern crate quick_csv;
 
 fn main() {
-    let csv = quick_csv::Csv::from_file("test.csv").unwrap();
+    let data = "a,b\r\nc,d\r\ne,f";
+    let csv = quick_csv::Csv::from_string(data);
     for row in csv.into_iter() {
         // work on csv row ...
+        if let Ok(_) = row {
+            println!("new row!");
+        } else {
+            println!("cannot read next line");
+        }
     }
 }
 ```
@@ -23,8 +28,9 @@ fn main() {
   - Iterator item is a `&str`, which means you only have to `parse()` it to the needed type and you're done
 
   ```rust
-  let mut cols = row.columns();
-  let fifth = cols.nth(5).unwrap().parse::<f64>();
+  let row = quick_csv::Csv::from_string("a,b,c,d,e,38,f").next().unwrap().unwrap();
+  let mut cols = row.columns().expect("cannot convert to utf8");
+  let fifth = cols.nth(5).unwrap().parse::<f64>().unwrap();
   println!("Doubled fifth column: {}", fifth * 2.0);
   ```
 
@@ -33,7 +39,8 @@ fn main() {
   - most convenient way to deal with your csv data
 
   ```rust
-  if let Ok((col1, col2, col3)) = rust::decode::<(String, u64, f64)>() {
+  let row = quick_csv::Csv::from_string("a,b,54").next().unwrap().unwrap();
+  if let Ok((col1, col2, col3)) = row.decode::<(String, u64, f64)>() {
       println!("col1: '{}', col2: {}, col3: {}", col1, col2, col3);
   }
   ``` 
