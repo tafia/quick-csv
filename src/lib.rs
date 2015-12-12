@@ -264,14 +264,18 @@ impl Row {
 /// - Ok(false) if no issue but it reached end of buffer
 /// - Err(Error::UnescapeQuote) if a quote if found within the column
 macro_rules! consume_quote {
-    ($bytes: expr, $delimiter: expr, $in_quote: expr) => {
+    ($bytes: expr, $delimiter: expr, $in_quote: expr,
+     $start: expr, $buf: expr, $available: expr, $quote_count: expr) => {
         $in_quote = false;
         loop {
             match $bytes.next() {
                 Some((_, &b'\"')) => {
                     match $bytes.clone().next() {
-                        Some((_, &b'\"')) => {
+                        Some((i, &b'\"')) => {
                             $bytes.next(); // escaping quote
+                            let _ = $buf.write(&$available[$start..i]);
+                            $start = i + 1;
+                            $quote_count += 1;
                         },
                         None | Some((_, &b'\r')) | Some((_, &b'\n')) => break,
                         Some((_, d)) if *d == $delimiter => break,
@@ -294,6 +298,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
     let mut read = 0;
     let mut in_quote = false;
     let mut done = false;
+    let mut quote_count = 0;
     while !done {
         let used = {
             let available = match r.fill_buf() {
@@ -304,10 +309,11 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
             };
             
             let mut bytes = available.iter().enumerate();
+            let mut start = 0;
 
             // previous buffer was exhausted without exiting from quotes
             if in_quote {
-                consume_quote!(bytes, delimiter, in_quote);
+                consume_quote!(bytes, delimiter, in_quote, start, buf, available, quote_count);
             }
 
             // use a simple loop instead of for loop to allow nested loop
@@ -316,23 +322,23 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                 match bytes.next() {
                     Some((i, &b'\"')) => {
                         if i == 0 || available[i - 1] == delimiter {
-                            consume_quote!(bytes, delimiter, in_quote);
+                            consume_quote!(bytes, delimiter, in_quote, start, buf, available, quote_count);
                         } else {
                             return Err(Error::UnexpextedQuote);
                         }
                     },
                     Some((i, &b'\n')) => {
-                        let _ = buf.write(&available[..i]);
                         done = true;
                         used = i + 1;
+                        let _ = buf.write(&available[start..i]);
                         break;
                     },
                     Some((i, &d)) => {
-                        if d == delimiter { cols.push(read + i); }
+                        if d == delimiter { cols.push(read + i - quote_count); }
                     },
                     None => {
-                        let _ = buf.write(available);
                         used = available.len();
+                        let _ = buf.write(&available[start..used]);
                         break;
                     },
                 }

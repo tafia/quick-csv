@@ -133,6 +133,8 @@ parses_to!(quote_lf, "\"\"\n", vec![vec![""]]);
 parses_to!(quote_space, "\" \"", vec![vec![" "]]);
 parses_to!(quote_inner_space, "\" a \"", vec![vec![" a "]]);
 fail_parses_to!(quote_outer_space, "  \"a\"  ", vec![vec!["  \"a\"  "]]);
+parses_to!(quote_inner_quote, "a,b,\"c\"\"d\",e", vec![vec!["a", "b", "c\"d", "e"]]);
+fail_parses_to!(inner_quote_without_quoted_column, "a,b,c\"\"d,e", vec![vec!["a", "b", "c\"d", "e"]]);
 
 // parses_to!(quote_change, "zaz", vec![vec!["a"]],
 //            |rdr: Csv<_>| rdr.quote(b'z'));
