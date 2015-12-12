@@ -56,6 +56,8 @@ fn main() {
 I mainly benchmarked this to [rust-csv](https://github.com/BurntSushi/rust-csv), which is supposed to be already very fast.
 I tried to provide similar methods even if I don't have `raw` version.
 
+#### Normal bench
+
 ```
 quick-csv
 test bytes_records   ... bench:   3,955,041 ns/iter (+/- 95,122) = 343 MB/s
@@ -67,6 +69,16 @@ test byte_records    ... bench:  10,528,780 ns/iter (+/- 2,080,735) = 128 MB/s
 test decoded_records ... bench:  18,458,365 ns/iter (+/- 2,415,059) = 73 MB/s
 test raw_records     ... bench:   6,555,447 ns/iter (+/- 830,423) = 207 MB/s
 test string_records  ... bench:  12,813,284 ns/iter (+/- 2,324,424) = 106 MB/s
+```
+
+#### Bench large
+
+With the 3.6GB file, as described in the bench large README:
+
+```
+go:        187 seconds
+rust-csv:   23 seconds
+quick-csv:   9 seconds
 ```
 
 ### csv-game
