@@ -1,5 +1,9 @@
 # quick-csv
+
 Quick Csv reader which performs **very** well.
+
+This library has been hugely inspired by Andrew Gallant's (@BurntSuchi) excellent rust-csv.
+In particular, most tests and benchmarks are a simple copy-paste from there.
 
 ## Example
 
