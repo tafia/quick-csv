@@ -1,6 +1,4 @@
 use Csv;
-use error::Error;
-
 use std::io::{self, Read, Seek};
 
 fn assert_svec_eq<S, T>(got: Vec<Vec<S>>, expected: Vec<Vec<T>>)
@@ -73,7 +71,6 @@ macro_rules! decodes_to {
     );
 }
 
-
 parses_to!(one_row_one_field, "a", vec![vec!["a"]]);
 parses_to!(one_row_many_fields, "a,b,c", vec![vec!["a", "b", "c"]]);
 parses_to!(one_row_trailing_comma, "a,b,", vec![vec!["a", "b", ""]]);
@@ -104,16 +101,20 @@ parses_to!(many_rows_many_fields_crlf,
 parses_to!(many_rows_trailing_comma_crlf,
            "a,b,\r\nx,y,\r\n", vec![vec!["a", "b", ""], vec!["x", "y", ""]]);
 
+parses_to!(empty_string_no_headers, "", vec![]);
+parses_to!(empty_string_headers, "", vec![],
+            |rdr: Csv<_>| rdr.has_header(true));
+parses_to!(empty_lines, "\n\n\n\n", vec![vec![""], vec![""], vec![""], vec![""]]);
+
+// The following tests are done in xml-rs and left commented because 
+// the expected behavior is not clear
+//
 // parses_to!(trailing_lines_no_record,
 //            "\n\n\na,b,c\nx,y,z\n\n\n",
 //            vec![vec!["a", "b", "c"], vec!["x", "y", "z"]]);
 // parses_to!(trailing_lines_no_record_crlf,
 //            "\r\n\r\n\r\na,b,c\r\nx,y,z\r\n\r\n\r\n",
 //            vec![vec!["a", "b", "c"], vec!["x", "y", "z"]]);
-parses_to!(empty_string_no_headers, "", vec![]);
-parses_to!(empty_string_headers, "", vec![],
-            |rdr: Csv<_>| rdr.has_header(true));
-parses_to!(empty_lines, "\n\n\n\n", vec![vec![""], vec![""], vec![""], vec![""]]);
 // parses_to!(empty_lines_interspersed, "\n\na,b\n\n\nx,y\n\n\nm,n\n",
 //            vec![vec!["a", "b"], vec!["x", "y"], vec!["m", "n"]]);
 // parses_to!(empty_lines_crlf, "\r\n\r\n\r\n\r\n", vec![]);
@@ -135,9 +136,6 @@ parses_to!(quote_inner_space, "\" a \"", vec![vec![" a "]]);
 fail_parses_to!(quote_outer_space, "  \"a\"  ", vec![vec!["  \"a\"  "]]);
 parses_to!(quote_inner_quote, "a,b,\"c\"\"d\",e", vec![vec!["a", "b", "c\"d", "e"]]);
 fail_parses_to!(inner_quote_without_quoted_column, "a,b,c\"\"d,e", vec![vec!["a", "b", "c\"d", "e"]]);
-
-// parses_to!(quote_change, "zaz", vec![vec!["a"]],
-//            |rdr: Csv<_>| rdr.quote(b'z'));
 
 parses_to!(delimiter_tabs, "a\tb", vec![vec!["a", "b"]],
            |rdr: Csv<_>| rdr.delimiter(b'\t'));
@@ -189,12 +187,14 @@ fn no_headers_no_skip_one_record() {
     assert_eq!(rows.len(), 1);
 }
 
-// #[test]
-// fn no_headers_first_record() {
-//     let mut d = Csv::from_string("a,b");
-//     let r = d.headers();
-//     assert_eq!(r, vec!("a".to_string(), "b".to_string()));
-// }
+#[test]
+fn no_headers_first_record() {
+    let mut d = Csv::from_string("a,b").has_header(false);
+    let r = d.headers();
+    assert_eq!(r, Vec::<String>::new());
+    let r = d.next().unwrap().unwrap();
+    assert_eq!(r.columns().unwrap().collect::<Vec<_>>(), vec!("a".to_string(), "b".to_string()));
+}
 
 #[test]
 fn no_headers_no_skip() {

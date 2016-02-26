@@ -98,7 +98,7 @@ pub struct Csv<B: BufRead> {
     /// reader
     reader: B,
     /// header
-    has_headers: bool,
+    has_header: bool,
     /// header
     headers: Option<Vec<String>>,
     /// flexible column count
@@ -107,6 +107,8 @@ pub struct Csv<B: BufRead> {
     len: Option<usize>,
     /// if was error, exit next
     exit: bool,
+    /// line count
+    current_line: usize,
 }
 
 impl<B: BufRead> Csv<B> {
@@ -118,11 +120,12 @@ impl<B: BufRead> Csv<B> {
         Csv {
             reader: reader,
             delimiter: b',',
-            has_headers: false,
+            has_header: false,
             headers: None,
             flexible: false,
             len: None,
             exit: false,
+            current_line: 0,
         }
     }
 
@@ -139,8 +142,8 @@ impl<B: BufRead> Csv<B> {
     }
 
     /// Defines whether there is a header or not
-    pub fn has_header(mut self, has_headers: bool) -> Csv<B> {
-        self.has_headers = has_headers;
+    pub fn has_header(mut self, has_header: bool) -> Csv<B> {
+        self.has_header = has_header;
         let _ = self.headers();
         self
     }
@@ -150,7 +153,7 @@ impl<B: BufRead> Csv<B> {
         if let Some(ref h) = self.headers {
             return h.clone();
         }
-        if self.has_headers {            
+        if self.has_header {            
             if let Some(r) = self.next() {
                 if let Ok(r) = r {
                     let h = r.decode().unwrap_or(Vec::new());
@@ -166,6 +169,14 @@ impl<B: BufRead> Csv<B> {
     pub fn len(&self) -> Option<usize> {
         self.len
     }
+
+    /// Gets the current line number
+    ///
+    /// Useful if you get an error and want to investigate the source
+    pub fn current_line(&self) -> usize {
+        self.current_line
+    }
+
 }
 
 impl Csv<BufReader<File>> {
@@ -184,8 +195,7 @@ impl<'a> Csv<&'a [u8]> {
     }
 }
 
-
-/// Iterator on csv returning rows
+/// Iterator on csv `Row`s
 impl<B: BufRead> Iterator for Csv<B> {
     type Item = Result<Row>;
     fn next(&mut self) -> Option<Result<Row>> {
@@ -202,11 +212,13 @@ impl<B: BufRead> Iterator for Csv<B> {
                 let c = cols.len();
                 if let Some(n) = self.len {
                     if n != c && !self.flexible {
+                        self.exit = true;
                         return Some(Err(Error::ColumnMismatch(n, c)));
                     }
                 } else {
                     self.len = Some(c);
                 }
+                self.current_line += 1;
                 Some(Ok(Row {
                     line: buf,
                     cols: cols,
@@ -233,8 +245,8 @@ impl Row {
     /// Gets an iterator over columns
     pub fn columns<'a>(&'a self) -> Result<Columns<'a>> {
         match ::std::str::from_utf8(&self.line) {
-            Err(_) => Err(Error::from(io::Error::new(io::ErrorKind::InvalidData,
-                                            "stream did not contain valid UTF-8"))),
+            Err(_) => Err(Error::Io(io::Error::new(io::ErrorKind::InvalidData,
+                                    "stream did not contain valid UTF-8"))),
             Ok(s) => Ok(Columns::new(s, &self.cols)),
         }
     }
