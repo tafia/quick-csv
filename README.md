@@ -5,6 +5,8 @@ Quick Csv reader which performs **very** well.
 This library has been hugely inspired by Andrew Gallant's (@BurntSuchi) excellent rust-csv.
 In particular, most tests and benchmarks are a simple copy-paste from there.
 
+[documentation](http://tafia.github.io/quick-csv/quick_csv/index.html)
+
 ## Example
 
 First, create a `Csv` from a `BufRead` reader, a file or a string
