@@ -1,6 +1,6 @@
 [package]
 name = "quick-csv"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Johann Tuffe <tafia973@gmail.com"]
 description = "quick csv reader and decoder"
 
