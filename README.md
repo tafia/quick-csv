@@ -1,5 +1,8 @@
 # quick-csv
 
+[![Build Status](https://travis-ci.org/tafia/quick-csv.svg?branch=master)](https://travis-ci.org/appsignal/quick-csv)
+[![Crate](http://meritbadge.herokuapp.com/quick-csv)](https://crates.io/crates/quick-csv)
+
 Quick Csv reader which performs **very** well.
 
 This library has been hugely inspired by Andrew Gallant's (@BurntSuchi) excellent rust-csv.
