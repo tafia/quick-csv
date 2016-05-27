@@ -156,7 +156,7 @@ impl<B: BufRead> Csv<B> {
         if self.has_header {            
             if let Some(r) = self.next() {
                 if let Ok(r) = r {
-                    let h = r.decode().unwrap_or(Vec::new());
+                    let h = r.decode().ok().unwrap_or_else(Vec::new);
                     self.headers = Some(h.clone());
                     return h;
                 }
@@ -166,7 +166,7 @@ impl<B: BufRead> Csv<B> {
     }
 
     /// Get column count
-    pub fn len(&self) -> Option<usize> {
+    pub fn column_count(&self) -> Option<usize> {
         self.len
     }
 
@@ -201,7 +201,7 @@ impl<B: BufRead> Iterator for Csv<B> {
     fn next(&mut self) -> Option<Result<Row>> {
         if self.exit { return None; }
         let mut buf = Vec::new();
-        let mut cols = self.len.map_or_else(|| Vec::new(), |n| Vec::with_capacity(n));
+        let mut cols = self.len.map_or_else(Vec::new, Vec::with_capacity);
         match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
@@ -243,7 +243,7 @@ pub struct Row {
 impl Row {
 
     /// Gets an iterator over columns
-    pub fn columns<'a>(&'a self) -> Result<Columns<'a>> {
+    pub fn columns(&self) -> Result<Columns> {
         match ::std::str::from_utf8(&self.line) {
             Err(_) => Err(Error::Io(io::Error::new(io::ErrorKind::InvalidData,
                                     "stream did not contain valid UTF-8"))),
@@ -252,7 +252,7 @@ impl Row {
     }
 
     ///  Creates a new BytesColumns iterator over &[u8]
-    pub fn bytes_columns<'a>(&'a self) -> BytesColumns<'a> {
+    pub fn bytes_columns(&self) -> BytesColumns {
         BytesColumns::new(&self.line, &self.cols)
     }
 
@@ -265,6 +265,11 @@ impl Row {
     /// Gets columns count
     pub fn len(&self) -> usize {
         self.cols.len()
+    }
+
+    /// `Row` is empty if there is no columns
+    pub fn is_empty(&self) -> bool {
+        self.cols.is_empty()
     }
 
 }
