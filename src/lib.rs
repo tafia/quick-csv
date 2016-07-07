@@ -57,7 +57,7 @@ pub mod error;
 
 use self::columns::{Columns, BytesColumns};
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader};
 use std::iter::Iterator;
 use std::path::Path;
 
@@ -290,7 +290,7 @@ macro_rules! consume_quote {
                     match $bytes.clone().next() {
                         Some((i, &b'\"')) => {
                             $bytes.next(); // escaping quote
-                            let _ = $buf.write(&$available[$start..i]);
+                            $buf.extend_from_slice(&$available[$start..i]);
                             $start = i + 1;
                             $quote_count += 1;
                         },
@@ -309,6 +309,7 @@ macro_rules! consume_quote {
     }
 }
 
+/// Reads an entire line into memory
 fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
     delimiter: u8, cols: &mut Vec<usize>) -> Result<usize>
 {
@@ -347,7 +348,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                     Some((i, &b'\n')) => {
                         done = true;
                         used = i + 1;
-                        let _ = buf.write(&available[start..i]);
+                        buf.extend_from_slice(&available[start..i]);
                         break;
                     },
                     Some((i, &d)) => {
@@ -355,7 +356,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                     },
                     None => {
                         used = available.len();
-                        let _ = buf.write(&available[start..used]);
+                        buf.extend_from_slice(&available[start..used]);
                         break;
                     },
                 }
