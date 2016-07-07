@@ -8,11 +8,11 @@ repository = "https://github.com/tafia/quick-csv"
 documentation = "http://tafia.github.io/quick-csv/quick_csv/index.html"
 
 readme = "README.md"
-keywords = ["csv", "delimited", "parser"]
+keywords = ["csv", "delimited", "parser", "serialize"]
 license = "MIT"
 
 [dependencies]
-rustc-serialize="0.3"
+rustc-serialize="0.3.19"
 
 [lib]
 bench=false
