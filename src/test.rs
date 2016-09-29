@@ -213,6 +213,15 @@ fn byte_strings() {
 }
 
 #[test]
+fn utf8_bom_quotes() {
+    let mut d = Csv::from_reader(&b"\xef\xbb\xbf\"abc\",\"xyz\""[..]);
+    let r = d.next().unwrap().unwrap();
+    let c = r.bytes_columns().collect::<Vec<_>>();
+    assert_eq!(c, vec![b"abc", b"xyz"]);
+}
+
+
+#[test]
 fn byte_strings_invalid_utf8() {
     let mut d = Csv::from_reader(&b"a\xffbc,xyz"[..]);
     let r = d.next().unwrap().unwrap();

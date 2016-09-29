@@ -66,6 +66,8 @@ use rustc_serialize::Decodable;
 
 #[cfg(test)] mod test;
 
+const UTF8_BOM: &'static [u8] = b"\xef\xbb\xbf";
+
 /// Csv reader
 /// 
 /// Iterates over the rows of the csv
@@ -116,7 +118,9 @@ impl<B: BufRead> Csv<B> {
     /// Creates a Csv from a generic BufReader
     /// 
     /// Note: default delimiter = ','
-    pub fn from_reader(reader: B) -> Csv<B> {
+    pub fn from_reader(mut reader: B) -> Csv<B> {
+        let result = try_consume_utf8_bom(&mut reader);
+
         Csv {
             reader: reader,
             delimiter: b',',
@@ -124,7 +128,7 @@ impl<B: BufRead> Csv<B> {
             headers: None,
             flexible: false,
             len: None,
-            exit: false,
+            exit: result.is_err(),
             current_line: 0,
         }
     }
@@ -177,6 +181,13 @@ impl<B: BufRead> Csv<B> {
         self.current_line
     }
 
+    fn try_consume_utf8_bom(reader: &mut B) -> Result<()> {
+        if try!(reader.fill_buf()).starts_with(UTF8_BOM) {
+            reader.consume(UTF8_BOM.len());
+        }
+
+        Ok(())
+    }
 }
 
 impl Csv<BufReader<File>> {
@@ -311,7 +322,7 @@ macro_rules! consume_quote {
 
 /// Reads an entire line into memory
 fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
-    delimiter: u8, cols: &mut Vec<usize>) -> Result<usize>
+                         delimiter: u8, cols: &mut Vec<usize>) -> Result<usize>
 {
     let mut read = 0;
     let mut in_quote = false;
@@ -325,7 +336,7 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
                 Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(Error::from(e)),
             };
-            
+
             let mut bytes = available.iter().enumerate();
             let mut start = 0;
 
@@ -367,4 +378,12 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
         read += used;
     }
     Ok(read)
+}
+
+fn try_consume_utf8_bom<B: BufRead>(reader: &mut B) -> Result<()> {
+    if try!(reader.fill_buf()).starts_with(UTF8_BOM) {
+        reader.consume(UTF8_BOM.len());
+    }
+
+    Ok(())
 }
