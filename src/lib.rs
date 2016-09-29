@@ -66,6 +66,8 @@ use rustc_serialize::Decodable;
 
 #[cfg(test)] mod test;
 
+const UTF8_BOM: &'static [u8] = b"\xef\xbb\xbf";
+
 /// Csv reader
 /// 
 /// Iterates over the rows of the csv
@@ -116,7 +118,9 @@ impl<B: BufRead> Csv<B> {
     /// Creates a Csv from a generic BufReader
     /// 
     /// Note: default delimiter = ','
-    pub fn from_reader(reader: B) -> Csv<B> {
+    pub fn from_reader(mut reader: B) -> Csv<B> {
+        let result = try_consume_utf8_bom(&mut reader);
+
         Csv {
             reader: reader,
             delimiter: b',',
@@ -124,7 +128,7 @@ impl<B: BufRead> Csv<B> {
             headers: None,
             flexible: false,
             len: None,
-            exit: false,
+            exit: result.is_err(),
             current_line: 0,
         }
     }
@@ -177,6 +181,13 @@ impl<B: BufRead> Csv<B> {
         self.current_line
     }
 
+    fn try_consume_utf8_bom(reader: &mut B) -> Result<()> {
+        if try!(reader.fill_buf()).starts_with(UTF8_BOM) {
+            reader.consume(UTF8_BOM.len());
+        }
+
+        Ok(())
+    }
 }
 
 impl Csv<BufReader<File>> {
@@ -202,7 +213,7 @@ impl<B: BufRead> Iterator for Csv<B> {
         if self.exit { return None; }
         let mut buf = Vec::new();
         let mut cols = self.len.map_or_else(Vec::new, Vec::with_capacity);
-        match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols, self.len == None) {
+        match read_line(&mut self.reader, &mut buf, self.delimiter, &mut cols) {
             Ok(0) => None,
             Ok(_n) => {
                 if buf.ends_with(&[b'\r']) {
@@ -311,27 +322,21 @@ macro_rules! consume_quote {
 
 /// Reads an entire line into memory
 fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
-    delimiter: u8, cols: &mut Vec<usize>, first_read: bool) -> Result<usize>
+                         delimiter: u8, cols: &mut Vec<usize>) -> Result<usize>
 {
-    const UTF8_BOM: &'static [u8] = b"\xef\xbb\xbf";
     let mut read = 0;
     let mut in_quote = false;
     let mut done = false;
     let mut quote_count = 0;
     while !done {
         let used = {
-            let mut available = match r.fill_buf() {
+            let available = match r.fill_buf() {
                 Ok(n) if n.is_empty() => return Ok(read),
                 Ok(n) => n,
                 Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(Error::from(e)),
             };
 
-            // check if the file starts with a UTF8 BOM and skip it if present
-            if first_read && available.starts_with(UTF8_BOM) {
-                available = &available[UTF8_BOM.len()..];
-            }
-            
             let mut bytes = available.iter().enumerate();
             let mut start = 0;
 
@@ -373,4 +378,12 @@ fn read_line<R: BufRead>(r: &mut R, buf: &mut Vec<u8>,
         read += used;
     }
     Ok(read)
+}
+
+fn try_consume_utf8_bom<B: BufRead>(reader: &mut B) -> Result<()> {
+    if try!(reader.fill_buf()).starts_with(UTF8_BOM) {
+        reader.consume(UTF8_BOM.len());
+    }
+
+    Ok(())
 }
