@@ -181,13 +181,6 @@ impl<B: BufRead> Csv<B> {
         self.current_line
     }
 
-    fn try_consume_utf8_bom(reader: &mut B) -> Result<()> {
-        if try!(reader.fill_buf()).starts_with(UTF8_BOM) {
-            reader.consume(UTF8_BOM.len());
-        }
-
-        Ok(())
-    }
 }
 
 impl Csv<BufReader<File>> {
