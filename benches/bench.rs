@@ -4,16 +4,17 @@ extern crate quick_csv as csv;
 extern crate rustc_serialize;
 extern crate test;
 
+use csv::Csv;
 use std::fmt::{Debug, Display};
 use std::fs;
 use std::io::Read;
 use test::Bencher;
-use csv::Csv;
 
 static CSV_DATA: &'static str = "./examples/data/bench.csv";
 
-fn ordie<T, E: Debug+Display>(r: Result<T, E>) -> T {
-    r.or_else(|e: E| -> Result<T, E> { panic!(format!("{:?}", e)) }).unwrap()
+fn ordie<T, E: Debug + Display>(r: Result<T, E>) -> T {
+    r.or_else(|e: E| -> Result<T, E> { panic!(format!("{:?}", e)) })
+        .unwrap()
 }
 
 fn file_to_mem(fp: &str) -> Vec<u8> {
@@ -31,7 +32,7 @@ fn str_records(b: &mut Bencher) {
         let dec = Csv::from_reader(&*data);
         for row in dec.into_iter() {
             for c in row.unwrap().columns() {
-                let _ = c;    
+                let _ = c;
             }
         }
     })
@@ -45,7 +46,7 @@ fn bytes_records(b: &mut Bencher) {
         let dec = Csv::from_reader(&*data);
         for row in dec.into_iter() {
             for c in row.unwrap().bytes_columns() {
-                let _ = c;    
+                let _ = c;
             }
         }
     })
