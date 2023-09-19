@@ -44,7 +44,7 @@ impl<'a> BytesColumns<'a> {
     pub fn new(line: &'a [u8], cols: &'a [usize]) -> BytesColumns<'a> {
         BytesColumns {
             pos: 0,
-            line: line,
+            line,
             iter: cols.iter(),
         }
     }
@@ -87,7 +87,7 @@ impl<'a> Columns<'a> {
     pub fn new(line: &'a str, cols: &'a [usize]) -> Columns<'a> {
         Columns {
             pos: 0,
-            line: line,
+            line,
             iter: cols.iter(),
         }
     }

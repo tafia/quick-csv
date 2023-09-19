@@ -160,7 +160,7 @@ decodes_to!(decode_int, "1", (usize,), vec![(1usize,)]);
 decodes_to!(decode_many_int, "1,2", (usize, i16), vec![(1usize, 2i16)]);
 decodes_to!(decode_float, "1,1.0,1.5",
             (f64, f64, f64), vec![(1f64, 1.0, 1.5)]);
-decodes_to!(decode_char, "a", (char), vec![('a')]);
+decodes_to!(decode_char, "a", char, vec![('a')]);
 decodes_to!(decode_str, "abc", (String,), vec![("abc".into(),)]);
 
 decodes_to!(decode_opt_int, "a", (Option<usize>,), vec![(None,)]);

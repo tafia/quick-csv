@@ -66,7 +66,7 @@ use rustc_serialize::Decodable;
 
 #[cfg(test)] mod test;
 
-const UTF8_BOM: &'static [u8] = b"\xef\xbb\xbf";
+const UTF8_BOM: &[u8] = b"\xef\xbb\xbf";
 
 /// Csv reader
 /// 
@@ -122,7 +122,7 @@ impl<B: BufRead> Csv<B> {
         let result = try_consume_utf8_bom(&mut reader);
 
         Csv {
-            reader: reader,
+            reader,
             delimiter: b',',
             has_header: false,
             headers: None,
@@ -225,7 +225,7 @@ impl<B: BufRead> Iterator for Csv<B> {
                 self.current_line += 1;
                 Some(Ok(Row {
                     line: buf,
-                    cols: cols,
+                    cols,
                 }))
             }
             Err(e) => {
