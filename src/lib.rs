@@ -158,12 +158,10 @@ impl<B: BufRead> Csv<B> {
             return h.clone();
         }
         if self.has_header {
-            if let Some(r) = self.next() {
-                if let Ok(r) = r {
-                    let h = r.decode().ok().unwrap_or_else(Vec::new);
-                    self.headers = Some(h.clone());
-                    return h;
-                }
+            if let Some(Ok(r)) = self.next() {
+                let h: Vec<_> = r.decode().ok().unwrap_or_default();
+                self.headers = Some(h.clone());
+                return h;
             }
         }
         Vec::new()
