@@ -1,5 +1,5 @@
 //! Error management module
-//! 
+//!
 //! Provides all csv error conversion and description
 //! Also provides `Result` as a alias of `Result<_, Error>
 
@@ -36,8 +36,13 @@ impl fmt::Display for Error {
             Error::Io(ref err) => write!(f, "{}", err),
             Error::EOL => write!(f, "Trying to access column but found End Of Line"),
             Error::UnescapedQuote => write!(f, "A CSV column has an unescaped quote"),
-            Error::UnexpextedQuote => write!(f, "A CSV column has a quote but the entire column value is not quoted"),
-            Error::ColumnMismatch(exp, cur) => write!(f, "Expectiong {} columns, found {}", exp, cur),
+            Error::UnexpextedQuote => write!(
+                f,
+                "A CSV column has a quote but the entire column value is not quoted"
+            ),
+            Error::ColumnMismatch(exp, cur) => {
+                write!(f, "Expectiong {} columns, found {}", exp, cur)
+            }
         }
     }
 }
@@ -50,7 +55,9 @@ impl ::std::error::Error for Error {
             Error::Io(..) => "CSV IO error",
             Error::EOL => "Trying to access column but found End Of Line",
             Error::UnescapedQuote => "A CSV column has an unescaped quote",
-            Error::UnexpextedQuote => "A CSV column has a quote but the entire column value is not quoted",
+            Error::UnexpextedQuote => {
+                "A CSV column has a quote but the entire column value is not quoted"
+            }
             Error::ColumnMismatch(..) => "Current column count mismatch with previous rows",
         }
     }
@@ -64,6 +71,7 @@ impl ::std::error::Error for Error {
 }
 
 impl From<::std::io::Error> for Error {
-    fn from(err: ::std::io::Error) -> Error { Error::Io(err) }
+    fn from(err: ::std::io::Error) -> Error {
+        Error::Io(err)
+    }
 }
-
